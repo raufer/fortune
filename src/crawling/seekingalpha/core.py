@@ -8,6 +8,8 @@ from typing import List, Tuple
 
 base = 'https://seekingalpha.com'
 
+headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'}
+
 
 def list_articles(url: str) -> List[Tuple[str, str]]:
     """
@@ -73,7 +75,7 @@ def _crawl_title(soup):
     return title
 
 
-def crawl_seekingalpha_article(x: str):
+def crawl_seekingalpha_article(x):
     """
     """
     if isinstance(x, str):
@@ -88,6 +90,41 @@ def crawl_seekingalpha_article(x: str):
 
     article = ["[[Article]]{}.".format(title)] + summary + body
     return article
+
+
+def crawl_seekingalpha_author(soup):
+    author_tag = soup.find('div',class_='media hidden-print').find('div',class_='info').find('div',class_='top')
+    author_url = author_tag.find('a')['href']
+    author_name = author_tag.find('span',class_='name').get_text()
+
+    soup = BeautifulSoup(requests.get(author_url, headers=headers).content)
+
+    followers = soup.find('li',class_='followers').find('i',class_='profile-top-nav-count').get_text()
+    articles = soup.find('li', class_='articles').find('i', class_='profile-top-nav-count').get_text()
+
+    result = {
+        'name': author_name,
+        'url': author_url,
+        'followers': followers,
+        'articles': articles
+    }
+
+    return result
+
+
+if __name__ == '__main__':
+
+    url = 'https://seekingalpha.com/article/4294051-week-review-henlius-licenses-southeast-asia-rights-pdminus-1-candidate-692-million-deal'
+    result = requests.get(url)
+    soup = BeautifulSoup(result.content)
+
+    author = crawl_seekingalpha_author(soup)
+    print(author)
+
+
+
+
+
 
 
 
