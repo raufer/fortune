@@ -112,6 +112,43 @@ def crawl_seekingalpha_author(soup):
     return result
 
 
+def crawl_timestamp(soup):
+    """
+    Return timestamp in ISO 8601 UTC format
+    """
+    header = soup.find('div', class_='a-info clearfix')
+    timestamp = header.find('time')['content']
+    return timestamp
+
+
+def crawl_metadata(soup):
+    """
+    Returns article metadata,
+    e.g. number of likes, comments, etc
+    """
+    header = soup.find('div', class_='a-info clearfix')
+
+    comments_tag = header.find('span', id='a-comments')
+    if comments_tag:
+        comments = comments_tag.find('a').get_text()
+    else:
+        comments = 0
+
+    likes_tag = header.find('div', class_='likers show-likers inited')
+    if likes_tag:
+        likes = likes_tag['data-count']
+    else:
+        likes = 0
+
+    metadata = {
+        'comments': comments,
+        'likes': likes
+    }
+
+    return metadata
+
+
+
 if __name__ == '__main__':
 
     url = 'https://seekingalpha.com/article/4294051-week-review-henlius-licenses-southeast-asia-rights-pdminus-1-candidate-692-million-deal'
