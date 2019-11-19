@@ -6,9 +6,9 @@ from functools import reduce
 
 from typing import List, Tuple
 
-base = 'https://seekingalpha.com'
+from src.crawling.http import make_headers
 
-headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.75 Safari/537.36'}
+base = 'https://seekingalpha.com'
 
 
 def list_articles(url: str) -> List[Tuple[str, str]]:
@@ -70,7 +70,7 @@ def _crawl_body(soup):
     return sections
 
 
-def _crawl_title(soup):
+def crawl_title(soup):
     title = soup.find('div', class_='sa-art-hd').find('h1').get_text().strip()
     return title
 
@@ -84,7 +84,7 @@ def crawl_seekingalpha_article(x):
     else:
         soup = x
 
-    title = _crawl_title(soup)
+    title = crawl_title(soup)
     summary = _crawl_summary(soup)
     body = _crawl_body(soup)
 
@@ -97,7 +97,7 @@ def crawl_seekingalpha_author(soup):
     author_url = author_tag.find('a')['href']
     author_name = author_tag.find('span',class_='name').get_text()
 
-    soup = BeautifulSoup(requests.get(author_url, headers=headers).content)
+    soup = BeautifulSoup(requests.get(author_url, headers=make_headers()).content)
 
     followers = soup.find('li',class_='followers').find('i',class_='profile-top-nav-count').get_text()
     articles = soup.find('li', class_='articles').find('i', class_='profile-top-nav-count').get_text()
@@ -146,7 +146,6 @@ def crawl_metadata(soup):
     }
 
     return metadata
-
 
 
 if __name__ == '__main__':
