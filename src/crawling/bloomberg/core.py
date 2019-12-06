@@ -5,22 +5,24 @@ from typing import Dict
 from datetime import datetime
 from bs4 import BeautifulSoup
 from functools import reduce
+
+from src.crawling.http import make_headers
 from src.ops.text.tokenize import tokenize_sentences
 
-base = 'https://www.fool.com'
+base = 'https://www.bloomberg.com/markets'
 
 
 logger = logging.getLogger(__name__)
 
 
-def crawl_author(soup):
+def crawl_author(soup) -> Dict:
     logger.debug(f"Extracting author information")
-    author_tag = soup.find('div', class_='author-tagline-top')
+    article_tag = soup.find('div', class_='article-content')
 
-    author_url = author_tag.find('div', class_='author-name').find('a')['href']
+    author_url = article_tag.find('div', class_='author-v2').find('a')['href']
     logger.debug(f"Author URL: '{author_url}'")
 
-    author_name = author_tag.find('div', class_='author-name').find('a').get_text().strip()
+    author_name = article_tag.find('div', class_='author-v2').find('a').get_text().strip()
     logger.debug(f"Author Name: '{author_name}'")
 
     # TODO: parse remaning data (needs JS)
@@ -41,8 +43,8 @@ def crawl_title(soup) -> str:
     """
     logger.debug(f"Extracting title")
 
-    section = soup.find('section', class_='usmf-new article-header')
-    title = section.find('h1').get_text()
+    article_tag = soup.find('div', class_='article-content')
+    title = article_tag.find('h1',class_='lede-text-v2__hed').get_text().strip()
 
     logger.info(f"Article title '{title}'")
     return title
@@ -146,8 +148,9 @@ def crawl_metadata(soup) -> Dict:
 
 
 if __name__ == '__main__':
-    url = 'https://www.fool.com/investing/2019/10/08/why-sailpoint-technologies-stock-dropped-17-in-sep.aspx'
-    result = requests.get(url)
+    url = 'https://www.bloomberg.com/news/articles/2019-12-05/boeing-tries-to-win-over-pilots-attendants-with-737-max-pitch'
+
+    result = requests.get(url, headers=make_headers())
     soup = BeautifulSoup(result.content)
 
-    article = crawl_article(soup)
+    article = crawl_title(soup)

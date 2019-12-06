@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from functools import reduce
 from src.ops.text.tokenize import tokenize_sentences
 
-base = 'https://www.fool.com'
+base = 'https://www.wsj.com/news/business'
 
 
 logger = logging.getLogger(__name__)
@@ -15,15 +15,15 @@ logger = logging.getLogger(__name__)
 
 def crawl_author(soup):
     logger.debug(f"Extracting author information")
-    author_tag = soup.find('div', class_='author-tagline-top')
+    author_info = soup.find('ul', class_='author-info')
 
-    author_url = author_tag.find('div', class_='author-name').find('a')['href']
-    logger.debug(f"Author URL: '{author_url}'")
-
-    author_name = author_tag.find('div', class_='author-name').find('a').get_text().strip()
+    author_name = author_info.find('div', class_='info-name').get_text().strip()
     logger.debug(f"Author Name: '{author_name}'")
 
-    # TODO: parse remaning data (needs JS)
+    author_url = author_info.find('li').find('a')['href']
+    logger.debug(f"Author URL: '{author_url}'")
+
+    # TODO: add extra fields
     result = {
         'name': author_name,
         'url': author_url,
@@ -41,8 +41,8 @@ def crawl_title(soup) -> str:
     """
     logger.debug(f"Extracting title")
 
-    section = soup.find('section', class_='usmf-new article-header')
-    title = section.find('h1').get_text()
+    section = soup.find('div', class_='wsj-article-headline-wrap')
+    title = section.find('h1').get_text().strip()
 
     logger.info(f"Article title '{title}'")
     return title
@@ -55,14 +55,11 @@ def crawl_timestamp(soup) -> str:
     """
     logger.debug(f"Extracting timestamp")
 
-    date = soup.find('div', class_='publication-date')
+    timestamp_tag = soup.find('time', class_='timestamp article__timestamp flexbox__flex--1')
+    timestamp_txt = timestamp_tag.get_text().strip().replace(' ET', '')
 
-    if date:
-        input_format = '%b %d, %Y at %I:%M%p'
-        timestamp = date.get_text().strip()
-        timestamp = datetime.strptime(timestamp, input_format).isoformat()
-    else:
-        timestamp = None
+    input_format = '%b. %d, %Y %I:%M %p'
+    timestamp = datetime.strptime(timestamp_txt, input_format).isoformat()
 
     logger.info(f"Article timestamp '{timestamp}'")
     return timestamp
@@ -70,7 +67,7 @@ def crawl_timestamp(soup) -> str:
 
 def _crawl_summary(soup):
     logger.debug(f"Extracting summary")
-    section = soup.find('section', class_='usmf-new article-header')
+    section = soup.find('div', class_='wsj-article-headline-wrap')
     summary = section.find('h2').get_text().strip()
     logger.debug(f"Summary: '{summary}'")
     return summary
@@ -79,10 +76,9 @@ def _crawl_summary(soup):
 def _crawl_body(soup):
     logger.debug(f"Extracting body")
 
-    section = soup.find('section', class_='usmf-new article-body')
-    body = section.find('span', class_='article-content')
+    body = soup.find('div', class_='article-content')
+    items = body.find_all('p')
 
-    items = body.find_all(recursive=False)
     logger.debug(f"Number of items: '{len(items)}'")
 
     def reducer(acc, x):
@@ -103,7 +99,7 @@ def _crawl_body(soup):
     logger.debug(f"Number of groups: '{len(grouped)}'")
 
     paragraphs = [
-        ['[[Paragraph]]{}'.format(group[0].get_text())] +
+        ['[[Paragraph]]{}'.format(group[0].get_text().strip())] +
         sum([tokenize_sentences(xs.get_text().strip()) for xs in group[1:]], [])
         for group in grouped if group
     ]
