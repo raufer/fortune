@@ -69,7 +69,7 @@ def parse_article(url) -> Dict:
 if __name__ == '__main__':
     from pprint import pprint
 
-    url = 'https://www.wsj.com/articles/how-johnson-johnson-shares-can-get-well-11574180520'
+    url = 'https://www.wsj.com/articles/vanguards-asia-head-leaves-investing-giant-after-leading-china-push-11577969213'
 
     article = parse_article(url)
 

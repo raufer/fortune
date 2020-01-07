@@ -2,9 +2,12 @@ import requests
 import logging
 
 from typing import Dict
+from typing import List
 from datetime import datetime
 from bs4 import BeautifulSoup
 from functools import reduce
+
+from src.crawling.http import make_headers
 from src.ops.text.tokenize import tokenize_sentences
 
 base = 'https://www.wsj.com/news/business'
@@ -65,11 +68,17 @@ def crawl_timestamp(soup) -> str:
     return timestamp
 
 
-def _crawl_summary(soup):
+def _crawl_summary(soup) -> List[str]:
+    """
+    Extracts a summary that that is able
+    to provide a short description of the article
+    """
     logger.debug(f"Extracting summary")
     section = soup.find('div', class_='wsj-article-headline-wrap')
     summary = section.find('h2').get_text().strip()
     logger.debug(f"Summary: '{summary}'")
+    summary = ["[[Article]]Summary."] + ["[[Paragraph]]Paragraph 0."] + [summary]
+    logger.debug(f"Summary w/ structure: '{summary}'")
     return summary
 
 
@@ -127,7 +136,7 @@ def crawl_article(x):
     summary = _crawl_summary(soup)
     body = _crawl_body(soup)
 
-    article = ["[[Article]]{}.".format(title)] + [summary] + body
+    article = ["[[Article]]{}.".format(title)] + summary + body
     return article
 
 
@@ -142,8 +151,9 @@ def crawl_metadata(soup) -> Dict:
 
 
 if __name__ == '__main__':
-    url = 'https://www.fool.com/investing/2019/10/08/why-sailpoint-technologies-stock-dropped-17-in-sep.aspx'
-    result = requests.get(url)
+    url = 'https://www.wsj.com/articles/vanguards-asia-head-leaves-investing-giant-after-leading-china-push-11577969213'
+
+    result = requests.get(url, headers=make_headers(source='wsj'))
     soup = BeautifulSoup(result.content)
 
-    article = crawl_article(soup)
+    _crawl_summary(soup)

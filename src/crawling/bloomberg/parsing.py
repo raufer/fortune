@@ -4,11 +4,11 @@ import logging
 from bs4 import BeautifulSoup
 
 from src.crawling.http import make_headers
-from src.crawling.motleyfool.core import crawl_title
-from src.crawling.motleyfool.core import crawl_article
-from src.crawling.motleyfool.core import crawl_author
-from src.crawling.motleyfool.core import crawl_timestamp
-from src.crawling.motleyfool.core import crawl_metadata
+from src.crawling.bloomberg.core import crawl_title
+from src.crawling.bloomberg.core import crawl_article
+from src.crawling.bloomberg.core import crawl_author
+from src.crawling.bloomberg.core import crawl_timestamp
+from src.crawling.bloomberg.core import crawl_metadata
 from graphify.parsing import parse_iterable
 
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def parse_article(url):
     logger.info(f"Parsing article '{url}'")
 
-    headers = make_headers(source='wsj')
+    headers = make_headers(source='bloomberg')
     logger.debug('Using Headers:')
     logger.debug(headers)
     result = requests.get(url, headers=headers)
@@ -53,7 +53,7 @@ def parse_article(url):
 if __name__ == '__main__':
     from pprint import pprint
 
-    url = 'https://www.fool.com/investing/2019/10/08/why-sailpoint-technologies-stock-dropped-17-in-sep.aspx'
+    url = 'https://www.bloomberg.com/news/articles/2019-12-05/boeing-tries-to-win-over-pilots-attendants-with-737-max-pitch'
 
     article = parse_article(url)
 

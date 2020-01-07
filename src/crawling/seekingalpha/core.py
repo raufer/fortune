@@ -5,12 +5,12 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from functools import reduce
 
-from typing import List, Tuple
+from typing import Tuple
+from typing import List
 
 from src.crawling.http import make_headers
 
 base = 'https://seekingalpha.com'
-
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,36 @@ def list_articles(url: str) -> List[Tuple[str, str]]:
     return articles
 
 
-def _crawl_summary(soup):
+def crawl_ticker_symbols(soup) -> List[Tuple[str, str]]:
+    """
+    Extracts all of the ticker symbols that are involved
+    Returns a list of strings [(exchange, symbol)]
+    """
+    logger.info(f"Extracting ticker symbols in article scope")
+
+    section = soup.find('span', id='about_stocks')
+    stocks = section.find_all('a')
+    logger.debug(f"'{len(stocks)}' stocks")
+
+    urls = [urljoin(base, s['href']) for s in stocks]
+    pages = [requests.get(url, headers=make_headers(source='seekingalpha')) for url in urls]
+    sections = [BeautifulSoup(result.content).find('div', class_='symbol_title') for result in pages]
+
+    symbols = [
+        (section.find('meta', itemprop='exchange')['content'], section.find('meta', itemprop='tickerSymbol')['content'])
+        for section in sections
+    ]
+
+    logger.info(f"Symbols found: '{[(s[0] + str('::') + s[1]) for s in symbols]}'")
+
+    return symbols
+
+
+def _crawl_summary(soup) -> List[str]:
+    """
+    Extracts a summary that that is able
+    to provide a short description of the article
+    """
     logger.debug(f"Extracting summary")
 
     summary_html = soup.find('div', class_='article-summary')
@@ -46,11 +75,11 @@ def _crawl_summary(soup):
     if summary_html:
         paragraphs = summary_html.find('div', class_='a-sum').find_all('p')
         paragraphs = [["[[Paragraph]]Paragraph {}.".format(i)] + [p.get_text()] for i, p in enumerate(paragraphs)]
-        text = ["[[Section]]Summary."] + sum(paragraphs, [])
+        text = ["[[Article]]Summary."] + sum(paragraphs, [])
     else:
         text = []
 
-    logger.debug(f"Summary: '{text}'")
+    logger.debug(f"Summary w/ structure: '{text}'")
     return text
 
 
@@ -79,7 +108,7 @@ def _crawl_body(soup):
         ["[[Section]]{}.".format(s[0].get_text().strip())] +
         sum(
             [["[[Paragraph]]Paragraph {}.".format(i)] + [par.get_text()]
-            for i, par in enumerate(s[1:]) if par.get_text().strip()], []
+             for i, par in enumerate(s[1:]) if par.get_text().strip()], []
         )
         for s in sections
     ]
@@ -117,18 +146,18 @@ def crawl_article(x):
 def crawl_author(soup):
     logger.debug(f"Extracting author information")
 
-    author_tag = soup.find('div',class_='media hidden-print').find('div',class_='info').find('div',class_='top')
+    author_tag = soup.find('div', class_='media hidden-print').find('div', class_='info').find('div', class_='top')
 
     author_url = author_tag.find('a')['href']
     logger.debug(f"Author URL: '{author_url}'")
 
-    author_name = author_tag.find('span',class_='name').get_text()
+    author_name = author_tag.find('span', class_='name').get_text()
     logger.debug(f"Author Name: '{author_name}'")
 
     logger.debug(f"Getting author specific page '{author_url}'")
     soup = BeautifulSoup(requests.get(author_url, headers=make_headers()).content)
 
-    followers = soup.find('li',class_='followers').find('i',class_='profile-top-nav-count').get_text()
+    followers = soup.find('li', class_=['followers', 'followers tab ']).find('i').get_text()
     logger.debug(f"Number of followers '{followers}'")
 
     articles = soup.find('li', class_='articles').find('i', class_='profile-top-nav-count').get_text()
@@ -189,18 +218,9 @@ def crawl_metadata(soup):
 
 
 if __name__ == '__main__':
-
     url = 'https://seekingalpha.com/article/4294051-week-review-henlius-licenses-southeast-asia-rights-pdminus-1-candidate-692-million-deal'
-    result = requests.get(url)
+
+    result = requests.get(url, headers=make_headers(source='seekingalpha'))
     soup = BeautifulSoup(result.content)
 
-    author = crawl_author(soup)
-    print(author)
-
-
-
-
-
-
-
-
+    crawl_ticker_symbols(soup)

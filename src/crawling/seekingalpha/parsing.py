@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def parse_article(url):
     logger.info(f"Parsing article '{url}'")
 
-    headers = make_headers(source='wsj')
+    headers = make_headers(source='seekingalpha')
     logger.debug('Using Headers:')
     logger.debug(headers)
     result = requests.get(url, headers=headers)
@@ -53,7 +53,7 @@ def parse_article(url):
 if __name__ == '__main__':
     from pprint import pprint
 
-    url = 'https://seekingalpha.com/article/4295543-fiverr-exciting-growth-play-takes-patience'
+    url = 'https://seekingalpha.com/article/4294051-week-in-review-henlius-out-licenses-southeast-asia-rights-for-pdminus-1-candidate-in-692'
 
     article = parse_article(url)
 

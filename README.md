@@ -28,3 +28,6 @@ The following fields are added as top-level fields:
 
 * [List of libraries, tools and APIs for web scraping and data processing.](https://github.com/lorien/awesome-web-scraping)
 
+* [Curl to Python Requests](https://curl.trillworks.com/)
+
+* [Selenium PhantomJS custom headers in Python](https://stackoverflow.com/questions/35666067/selenium-phantomjs-custom-headers-in-python)
