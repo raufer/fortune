@@ -8,21 +8,34 @@ from src.crawling.seekingalpha.core import crawl_article, crawl_title
 from src.crawling.seekingalpha.core import crawl_timestamp
 from src.crawling.seekingalpha.core import crawl_metadata
 from src.crawling.seekingalpha.core import crawl_author
+from src.crawling.seekingalpha.core import crawl_ticker_symbols
 from graphify.parsing import parse_iterable
 
+from selenium.webdriver.chrome.webdriver import WebDriver
+from src.webdriver import api
 
 logger = logging.getLogger(__name__)
 
 
-def parse_article(url):
+def parse_article(driver: WebDriver, url: str):
+    """
+    Given an article, parse its content into a
+    representation that preserves the structure
+
+    * Grab the HTML page
+    * Crawl its contents
+    * Tag the text with the different hierarchical components
+    * Parse the resulting output into a graph
+    * Enrich with metadata:
+        - author information: name, url, etc;
+        - document title;
+        - publishing timestamp;
+        - other metadata;
+    """
     logger.info(f"Parsing article '{url}'")
 
-    headers = make_headers(source='seekingalpha')
-    logger.debug('Using Headers:')
-    logger.debug(headers)
-    result = requests.get(url, headers=headers)
-
-    soup = BeautifulSoup(result.content)
+    html = api.get(driver, url,  make_headers(source='seekingalpha'), wait_for=2)
+    soup = BeautifulSoup(html)
     logger.debug(f"Soup length '{len(soup)}'")
 
     hierarchy = ['Article', 'Section', 'Paragraph']
@@ -41,8 +54,9 @@ def parse_article(url):
 
     doc['url'] = url
     doc['title'] = crawl_title(soup)
-    doc['author'] = crawl_author(soup)
+    doc['author'] = crawl_author(driver, soup)
     doc['timestamp'] = crawl_timestamp(soup)
+    doc['symbols'] = crawl_ticker_symbols(soup)
 
     # TODO: meta, e.g likes and comments are still with problems
     doc['meta'] = crawl_metadata(soup)
@@ -51,12 +65,14 @@ def parse_article(url):
 
 
 if __name__ == '__main__':
+
     from pprint import pprint
+    from src.webdriver import init_chrome_driver
 
-    url = 'https://seekingalpha.com/article/4294051-week-in-review-henlius-out-licenses-southeast-asia-rights-for-pdminus-1-candidate-in-692'
+    driver = init_chrome_driver()
+    url = 'https://seekingalpha.com/article/4294051-week-review-henlius-licenses-southeast-asia-rights-pdminus-1-candidate-692-million-deal'
 
-    article = parse_article(url)
-
+    article = parse_article(driver, url)
     pprint(article)
 
 

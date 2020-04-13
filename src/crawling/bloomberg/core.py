@@ -1,8 +1,7 @@
+import re
 import requests
 import logging
 import time
-
-import src.crawling.webdriver as webdriver
 
 from typing import Dict
 from typing import List
@@ -15,45 +14,44 @@ from functools import reduce
 from src.crawling.http import make_headers
 from src.ops.text.tokenize import tokenize_sentences
 
+from selenium.webdriver.chrome.webdriver import WebDriver
+from src.webdriver import api
+
 base = 'https://www.bloomberg.com'
 
 logger = logging.getLogger(__name__)
 
 
-def crawl_ticker_symbols(soup, url) -> List[Tuple[str, str]]:
+def crawl_ticker_symbols(driver: WebDriver = None, url: str = None, soup=None) -> List[Tuple[str, str]]:
     """
     Extracts all of the ticker symbols that are involved
     Returns a list of strings [(exchange, symbol)]
     """
     logger.info(f"Extracting ticker symbols in article scope")
 
-    driver = webdriver.init_phantomjs_driver(headers=make_headers(source='bloomberg'))
-    html = webdriver.get(driver, url, wait_for=4)
-    soup = BeautifulSoup(html)
+    if soup is None:
+        html = api.get(driver, url, headers=make_headers('bloomberg'), wait_for=2)
+        soup = BeautifulSoup(html)
 
-    section = soup.find('div', class_='blens', recursive=True)
+    section = soup.find('section', class_=lambda v: v and 'main-column' in v, recursive=True)
 
-    stocks = section.find("div", class_=lambda v: v and v.startswith("instruments__"), recursive=True)
-    stocks = [s.find('a') for s in stocks.find_all('div', recursive=False)]
-    stocks = [urljoin(base, s['href']) for s in stocks if not s['href'].split('/')[-1][0].isdigit()]
+    references = section.find_all('a', recursive=True)
+    stocks = [ref for ref in references if '/quote' in ref.get('href')]
+    stocks = list(set([urljoin(base, s['href']) for s in stocks if not s['href'].split('/')[-1][0].isdigit()]))
 
     logger.debug(f"'{len(stocks)}' stocks")
 
-    pages = [requests.get(url, headers=make_headers(source='bloomberg')) for url in stocks]
+    pages = [api.get(driver, url) for url in stocks]
 
-    sections = [BeautifulSoup(result.content) for result in pages]
-    sections = [
-        section.find('section', class_=lambda v: v and v.startswith("company__"), recursive=True)
-        for section in sections
-    ]
+    for p in pages:
+        print(p)
 
-    symbols = [
-        (
-            section.find('span', class_=lambda v: v and v.startswith("exchange__")).get_text().strip(),
-            section.find('span', class_=lambda v: v and v.startswith("companyId__")).get_text().strip().split(":")[0]
-        )
-        for section in sections
-    ]
+    sections = [BeautifulSoup(result) for result in pages]
+    sections = [section.find('meta', property='og:title')['content'] for section in sections]
+
+    matches = [re.search(r'([A-Z0-9a-z]+):(.+) Stock Quote', s) for s in sections]
+
+    symbols = [(match.group(2), match.group(1)) for match in matches]
 
     translate = {
         'New York': 'NYSE',
@@ -204,9 +202,11 @@ def crawl_metadata(soup) -> Dict:
 
 
 if __name__ == '__main__':
+    from pprint import pprint
+    from src.webdriver import init_chrome_driver
+
     url = 'https://www.bloomberg.com/news/articles/2019-12-05/boeing-tries-to-win-over-pilots-attendants-with-737-max-pitch'
 
-    result = requests.get(url, headers=make_headers(source='bloomberg'))
-    soup = BeautifulSoup(result.content)
+    driver = init_chrome_driver()
+    crawl_ticker_symbols(driver, url)
 
-    crawl_ticker_symbols(soup, url)

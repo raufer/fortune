@@ -1,41 +1,21 @@
 import requests
 import logging
-
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
-from functools import reduce
+import time
 
 from typing import Tuple
 from typing import List
+from functools import reduce
 
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+from selenium.webdriver.chrome.webdriver import WebDriver
+
+from src.webdriver import api
 from src.crawling.http import make_headers
 
 base = 'https://seekingalpha.com'
 
 logger = logging.getLogger(__name__)
-
-
-def list_articles(url: str) -> List[Tuple[str, str]]:
-    """
-    Returns a list of the first page articles
-    [(name, url)]
-    """
-    logger.info(f"Listing articles")
-
-    result = requests.get(url)
-    soup = BeautifulSoup(result.content)
-
-    main = soup.find('ul', class_='articles-list')
-    articles = main.find_all('li')
-
-    articles = [art.find('div', class_='media-body').find('a') for art in articles]
-    articles = [(art.get_text(), urljoin(base, art['href'])) for art in articles]
-
-    logger.debug(f"Found articles:")
-    for article in articles:
-        logger.debug(article)
-
-    return articles
 
 
 def crawl_ticker_symbols(soup) -> List[Tuple[str, str]]:
@@ -143,7 +123,7 @@ def crawl_article(x):
     return article
 
 
-def crawl_author(soup):
+def crawl_author(driver: WebDriver, soup):
     logger.debug(f"Extracting author information")
 
     author_tag = soup.find('div', class_='media hidden-print').find('div', class_='info').find('div', class_='top')
@@ -155,7 +135,9 @@ def crawl_author(soup):
     logger.debug(f"Author Name: '{author_name}'")
 
     logger.debug(f"Getting author specific page '{author_url}'")
-    soup = BeautifulSoup(requests.get(author_url, headers=make_headers()).content)
+
+    html = api.get(driver, author_url, make_headers('seekingalpha'), wait_for=2)
+    soup = BeautifulSoup(html)
 
     followers = soup.find('li', class_=['followers', 'followers tab ']).find('i').get_text()
     logger.debug(f"Number of followers '{followers}'")
@@ -218,6 +200,7 @@ def crawl_metadata(soup):
 
 
 if __name__ == '__main__':
+
     url = 'https://seekingalpha.com/article/4294051-week-review-henlius-licenses-southeast-asia-rights-pdminus-1-candidate-692-million-deal'
 
     result = requests.get(url, headers=make_headers(source='seekingalpha'))

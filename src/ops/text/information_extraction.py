@@ -6,8 +6,6 @@ from typing import List
 
 from itertools import dropwhile
 
-from src.ops.keyword_extraction.extract import TextRank4Keyword
-
 nlp = spacy.load("en_core_web_sm")
 
 
@@ -33,17 +31,6 @@ def scan_inserts(text: Union[List[str], str]) -> Union[List[str], str]:
 
     new_text = dropwhile(lambda x: not insertion_signal(x), text)
     return list(new_text)
-
-
-def relevant_keywords(text: str, n: int = 10):
-    """
-    Returns the top `n` relevant keywords
-    as given by the text rank algorithm
-    """
-    tr4w = TextRank4Keyword()
-    tr4w.analyze(text, candidate_pos=['NOUN', 'PROPN', 'VERB', 'ADJ'], window_size=4, lower=True)
-    keywords = tr4w.get_keywords(n)
-    return keywords
 
 
 def token_count(text: Union[str, List[str]]):

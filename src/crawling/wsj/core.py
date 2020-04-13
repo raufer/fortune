@@ -1,19 +1,58 @@
+import re
 import requests
 import logging
 
 from typing import Dict
 from typing import List
-from datetime import datetime
+from typing import Tuple
+
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 from functools import reduce
 
 from src.crawling.http import make_headers
 from src.ops.text.tokenize import tokenize_sentences
+from src.ops.datetime import safe_datetime_to_iso
+
+from selenium.webdriver.chrome.webdriver import WebDriver
+from src.webdriver import api
 
 base = 'https://www.wsj.com/news/business'
 
 
 logger = logging.getLogger(__name__)
+
+
+def crawl_ticker_symbols(driver: WebDriver = None, url: str = None, soup=None) -> List[Tuple[str, str]]:
+    """
+    Extracts all of the ticker symbols that are involved
+    Returns a list of strings [(exchange, symbol)]
+    """
+    logger.info(f"Extracting ticker symbols in article scope")
+
+    if soup is None:
+        html = api.get(driver, url, headers=make_headers('wsj'), wait_for=2)
+        soup = BeautifulSoup(html)
+
+    stocks = soup.find_all('a', class_=lambda v: v and v.startswith("media-object-chiclet"), recursive=True)
+    logger.debug(f"'{len(stocks)}' stocks")
+
+    urls = list(set([urljoin(base, s['href']) for s in stocks]))
+    pages = [api.get(driver, url, headers=make_headers(source='wsj')) for url in urls]
+
+    sections = [BeautifulSoup(html).find('div', class_='cr_quotesHeader') for html in pages]
+
+    symbols = [
+        (
+            re.search(r'.+:\s?([A-Z0-9a-z]+)\)?', section.find('span', class_='exchangeName', recursive=True).get_text()).group(1),
+            section.find('span', class_='tickerName', recursive=True).get_text().strip()
+        )
+        for section in sections
+    ]
+
+    logger.info(f"Symbols found: '{[(s[0] + str('::') + s[1]) for s in symbols]}'")
+
+    return symbols
 
 
 def crawl_author(soup):
@@ -61,8 +100,12 @@ def crawl_timestamp(soup) -> str:
     timestamp_tag = soup.find('time', class_='timestamp article__timestamp flexbox__flex--1')
     timestamp_txt = timestamp_tag.get_text().strip().replace(' ET', '')
 
-    input_format = '%b. %d, %Y %I:%M %p'
-    timestamp = datetime.strptime(timestamp_txt, input_format).isoformat()
+    input_formats = [
+        '%b. %d, %Y %I:%M %p',
+        '%B %d, %Y %I:%M %p'
+    ]
+
+    timestamp = safe_datetime_to_iso(timestamp_txt, input_formats)
 
     logger.info(f"Article timestamp '{timestamp}'")
     return timestamp
@@ -151,9 +194,9 @@ def crawl_metadata(soup) -> Dict:
 
 
 if __name__ == '__main__':
-    url = 'https://www.wsj.com/articles/vanguards-asia-head-leaves-investing-giant-after-leading-china-push-11577969213'
+    url = 'https://www.wsj.com/articles/goldman-sachs-lifts-the-veil-to-woo-skeptical-shareholders-11578394803'
 
     result = requests.get(url, headers=make_headers(source='wsj'))
     soup = BeautifulSoup(result.content)
 
-    _crawl_summary(soup)
+    crawl_ticker_symbols(soup, url)

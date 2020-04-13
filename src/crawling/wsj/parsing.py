@@ -9,15 +9,18 @@ from src.crawling.wsj.core import crawl_article
 from src.crawling.wsj.core import crawl_author
 from src.crawling.wsj.core import crawl_timestamp
 from src.crawling.wsj.core import crawl_metadata
+from src.crawling.wsj.core import crawl_ticker_symbols
 from graphify.parsing import parse_iterable
 
 from typing import Dict
 
+from selenium.webdriver.chrome.webdriver import WebDriver
+from src.webdriver import api
 
 logger = logging.getLogger(__name__)
 
 
-def parse_article(url) -> Dict:
+def parse_article(driver: WebDriver, url: str):
     """
     Given an article, parse its content into a
     representation that preserves the structure
@@ -34,13 +37,9 @@ def parse_article(url) -> Dict:
     """
     logger.info(f"Parsing article '{url}'")
 
-    headers = make_headers(source='wsj')
+    html = api.get(driver, url,  make_headers(source='wsj'), wait_for=2)
+    soup = BeautifulSoup(html)
 
-    logger.debug('Using Headers:')
-    logger.debug(headers)
-    result = requests.get(url, headers=headers)
-
-    soup = BeautifulSoup(result.content)
     logger.debug(f"Soup length '{len(soup)}'")
 
     hierarchy = ['Article', 'Paragraph']
@@ -61,18 +60,20 @@ def parse_article(url) -> Dict:
     doc['title'] = crawl_title(soup)
     doc['author'] = crawl_author(soup)
     doc['timestamp'] = crawl_timestamp(soup)
+    doc['symbols'] = crawl_ticker_symbols(driver=driver, soup=soup)
     doc['meta'] = crawl_metadata(soup)
 
     return doc
 
 
 if __name__ == '__main__':
+
     from pprint import pprint
+    from src.webdriver import init_chrome_driver
 
-    url = 'https://www.wsj.com/articles/vanguards-asia-head-leaves-investing-giant-after-leading-china-push-11577969213'
+    driver = init_chrome_driver()
+    url = 'https://www.wsj.com/articles/softbank-expects-nearly-17-billion-loss-on-tech-focused-vision-fund-11586781142'
 
-    article = parse_article(url)
-
-    # pprint(article)
-
+    article = parse_article(driver, url)
+    pprint(article)
 

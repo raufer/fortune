@@ -9,21 +9,34 @@ from src.crawling.motleyfool.core import crawl_article
 from src.crawling.motleyfool.core import crawl_author
 from src.crawling.motleyfool.core import crawl_timestamp
 from src.crawling.motleyfool.core import crawl_metadata
+from src.crawling.motleyfool.core import crawl_ticker_symbols
 from graphify.parsing import parse_iterable
 
+from selenium.webdriver.chrome.webdriver import WebDriver
+from src.webdriver import api
 
 logger = logging.getLogger(__name__)
 
 
-def parse_article(url):
+def parse_article(driver: WebDriver, url: str):
+    """
+    Given an article, parse its content into a
+    representation that preserves the structure
+
+    * Grab the HTML page
+    * Crawl its contents
+    * Tag the text with the different hierarchical components
+    * Parse the resulting output into a graph
+    * Enrich with metadata:
+        - author information: name, url, etc;
+        - document title;
+        - publishing timestamp;
+        - other metadata;
+    """
     logger.info(f"Parsing article '{url}'")
 
-    headers = make_headers(source='wsj')
-    logger.debug('Using Headers:')
-    logger.debug(headers)
-    result = requests.get(url, headers=headers)
-
-    soup = BeautifulSoup(result.content)
+    html = api.get(driver, url,  make_headers(source='fool'))
+    soup = BeautifulSoup(html)
     logger.debug(f"Soup length '{len(soup)}'")
 
     hierarchy = ['Article', 'Paragraph']
@@ -44,6 +57,7 @@ def parse_article(url):
     doc['title'] = crawl_title(soup)
     doc['author'] = crawl_author(soup)
     doc['timestamp'] = crawl_timestamp(soup)
+    doc['symbols'] = crawl_ticker_symbols(soup)
     # TODO: meta, e.g likes and comments are still with problems
     doc['meta'] = crawl_metadata(soup)
 
@@ -51,12 +65,16 @@ def parse_article(url):
 
 
 if __name__ == '__main__':
-    from pprint import pprint
 
+    from pprint import pprint
+    from src.webdriver import init_chrome_driver
+
+    driver = init_chrome_driver()
     url = 'https://www.fool.com/investing/2019/10/08/why-sailpoint-technologies-stock-dropped-17-in-sep.aspx'
 
-    article = parse_article(url)
-
+    article = parse_article(driver, url)
     pprint(article)
+
+
 
 
